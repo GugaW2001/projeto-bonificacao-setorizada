@@ -124,6 +124,17 @@ export default function TabSetores() {
     }
   };
 
+  const excluirCriterio = async (c: CriterioUI) => {
+    if (!confirm(`Excluir o critério "${c.nome}"? Ele será removido do cadastro e das ocorrências que o citam.`)) return;
+    setErro("");
+    try {
+      await api(`/api/criteria/${c.id}`, { method: "DELETE" });
+      await carregar();
+    } catch (e) {
+      setErro((e as Error).message);
+    }
+  };
+
   if (carregando) return <div className="text-sm text-slate-400">Carregando setores…</div>;
 
   return (
@@ -157,7 +168,7 @@ export default function TabSetores() {
           <div className="mb-4">
             <h4 className="text-sm font-semibold text-slate-600 mb-2">Critérios de bonificação</h4>
             {s.criterios.length === 0 && <p className="text-xs text-slate-400">Nenhum critério.</p>}
-            <Tabela head={["Critério", "Tipo", "Métrica", "Origem", "Configuração", "Status"]}>
+            <Tabela head={["Critério", "Tipo", "Métrica", "Origem", "Configuração", "Status", ""]}>
               {s.criterios.map((c) => (
                 <tr key={c.id}>
                   <td className="px-3 py-2">{c.nome}</td>
@@ -171,6 +182,9 @@ export default function TabSetores() {
                   </td>
                   <td className="px-3 py-2">
                     {c.ativo ? <Badge tone="green">ativo</Badge> : <Badge tone="red">inativo</Badge>}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Button variant="danger" onClick={() => void excluirCriterio(c)}>Excluir</Button>
                   </td>
                 </tr>
               ))}
