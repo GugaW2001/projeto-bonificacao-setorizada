@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Input, Tabela, Empty, Alert } from "./ui";
+import { Button, Card, Input, Tabela, Empty, Alert, Select } from "./ui";
 import Dropzone from "./Dropzone";
 import { formatBRL, formatCount } from "@/lib/money";
+import { normalizeNome } from "@/lib/normalize";
 
 interface ItemSessaoUi {
   employeeId: string;
@@ -39,12 +40,14 @@ export default function TabBonificacao() {
   const [carregando, setCarregando] = useState(false);
   const [baixando, setBaixando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoSessaoUi | null>(null);
+  const [filtroEmp, setFiltroEmp] = useState("");
   const [erro, setErro] = useState("");
 
   const calcular = async () => {
     if (!arquivo) return;
     setErro("");
     setResultado(null);
+    setFiltroEmp("");
     setCarregando(true);
     try {
       const body = new FormData();
@@ -69,7 +72,7 @@ export default function TabBonificacao() {
       const res = await fetch("/api/pdf/bonus", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(resultado),
+        body: JSON.stringify({ ...resultado, employeeId: filtroEmp || undefined }),
       });
       if (!res.ok) {
         const corpo = await res.json().catch(() => null);
@@ -79,7 +82,9 @@ export default function TabBonificacao() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `bonificacao-${resultado.mes}.pdf`;
+      const nomeFiltro = filtroEmp ? resultado.itens.find((i) => i.employeeId === filtroEmp)?.nomeColaborador : undefined;
+      const sufixo = nomeFiltro ? `-${normalizeNome(nomeFiltro).replace(/\s+/g, "-")}` : "";
+      a.download = `bonificacao-${resultado.mes}${sufixo}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -89,8 +94,18 @@ export default function TabBonificacao() {
     }
   };
 
+  const itensTela = resultado && filtroEmp ? resultado.itens.filter((i) => i.employeeId === filtroEmp) : (resultado?.itens ?? []);
+  const totaisTela = resultado && filtroEmp
+    ? (() => {
+        const bruto = itensTela.reduce((acc, i) => acc + i.bonusBruto, 0);
+        const final = itensTela.reduce((acc, i) => acc + i.bonusFinal, 0);
+        return { bruto, descontos: bruto - final, final };
+      })()
+    : resultado?.totais;
+  const empOpcoes = [...new Map((resultado?.itens ?? []).map((i) => [i.employeeId, i.nomeColaborador])).entries()];
+
   const porEmpregado = new Map<string, { nome: string; setor: string; itens: ItemSessaoUi[] }>();
-  for (const i of resultado?.itens ?? []) {
+  for (const i of itensTela) {
     const e = porEmpregado.get(i.employeeId) ?? { nome: i.nomeColaborador, setor: i.setorTitulo, itens: [] as ItemSessaoUi[] };
     e.itens.push(i);
     porEmpregado.set(i.employeeId, e);
@@ -128,10 +143,21 @@ export default function TabBonificacao() {
             </Button>
           }
         >
+          <div className="flex gap-2 items-end mb-4">
+            <div>
+              <label className="text-xs text-slate-500">Filtrar por colaborador</label>
+              <Select value={filtroEmp} onChange={(e) => setFiltroEmp(e.target.value)} className="w-64">
+                <option value="">Todos os colaboradores</option>
+                {empOpcoes.map(([id, nome]) => (
+                  <option key={id} value={id}>{nome}</option>
+                ))}
+              </Select>
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="p-3 rounded-md bg-slate-50"><p className="text-xs text-slate-500">Bônus bruto</p><p className="font-semibold">{formatBRL(resultado.totais.bruto)}</p></div>
-            <div className="p-3 rounded-md bg-slate-50"><p className="text-xs text-slate-500">Descontos</p><p className="font-semibold text-red-600">{formatBRL(resultado.totais.descontos)}</p></div>
-            <div className="p-3 rounded-md bg-blue-50"><p className="text-xs text-slate-500">Bônus final</p><p className="font-semibold text-blue-700">{formatBRL(resultado.totais.final)}</p></div>
+            <div className="p-3 rounded-md bg-slate-50"><p className="text-xs text-slate-500">Bônus bruto</p><p className="font-semibold">{formatBRL(totaisTela?.bruto ?? 0)}</p></div>
+            <div className="p-3 rounded-md bg-slate-50"><p className="text-xs text-slate-500">Descontos</p><p className="font-semibold text-red-600">{formatBRL(totaisTela?.descontos ?? 0)}</p></div>
+            <div className="p-3 rounded-md bg-blue-50"><p className="text-xs text-slate-500">Bônus final</p><p className="font-semibold text-blue-700">{formatBRL(totaisTela?.final ?? 0)}</p></div>
             <div className="p-3 rounded-md bg-slate-50"><p className="text-xs text-slate-500">Linhas do mês</p><p className="font-semibold">{formatCount(resultado.linhasMes)}</p></div>
           </div>
           <p className="text-xs text-slate-400 mb-4">
@@ -154,7 +180,7 @@ export default function TabBonificacao() {
             </div>
           )}
 
-          {resultado.itens.length === 0 ? (
+          {itensTela.length === 0 ? (
             <Empty>Nenhum item calculado — verifique os critérios ativos dos setores.</Empty>
           ) : (
             [...porEmpregado.entries()].map(([empId, e]) => {

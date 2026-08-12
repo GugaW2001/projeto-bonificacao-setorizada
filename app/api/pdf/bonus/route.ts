@@ -2,12 +2,24 @@ import { NextResponse } from "next/server";
 import { parseBody } from "@/lib/api";
 import { sessionPdfSchema } from "@/lib/validators";
 import { formatBRL } from "@/lib/money";
+import { normalizeNome } from "@/lib/normalize";
 
 export async function POST(req: Request) {
   const { data, error } = await parseBody(req, sessionPdfSchema);
   if (error) return error;
 
-  const { mes, arquivo, avisos, itens, totais, faturamentoTotal } = data!;
+  const { mes, arquivo, avisos, itens, totais, faturamentoTotal, employeeId } = data!;
+
+  const itensFiltrados = employeeId ? itens.filter((i) => i.employeeId === employeeId) : itens;
+  const nomeFiltro = employeeId ? itensFiltrados[0]?.nomeColaborador : undefined;
+  const totaisFiltrados = employeeId
+    ? (() => {
+        const bruto = itensFiltrados.reduce((acc, i) => acc + i.bonusBruto, 0);
+        const final = itensFiltrados.reduce((acc, i) => acc + i.bonusFinal, 0);
+        return { bruto, descontos: bruto - final, final };
+      })()
+    : totais;
+  const avisosExibir = employeeId ? [] : avisos;
 
   const pdfkit = await import("pdfkit");
   const Doc = pdfkit.default ?? pdfkit;
@@ -17,7 +29,7 @@ export async function POST(req: Request) {
   doc.on("data", (c: Buffer) => chunks.push(c));
   const done = new Promise<void>((resolve) => doc.on("end", () => resolve()));
 
-  doc.fontSize(16).text(`Relatório de Bonificação — ${mes}`, { align: "center" });
+  doc.fontSize(16).text(`Relatório de Bonificação — ${mes}${nomeFiltro ? ` — ${nomeFiltro}` : ""}`, { align: "center" });
   doc.moveDown(0.4);
   doc.fontSize(9).fillColor("#666").text(
     [arquivo ? `Sessão: ${arquivo}` : "", faturamentoTotal != null ? `Faturamento do mês: ${formatBRL(faturamentoTotal)}` : ""]
@@ -28,13 +40,12 @@ export async function POST(req: Request) {
   doc.moveDown(1);
 
   const porEmp = new Map<string, { nome: string; setor: string; itens: typeof itens }>();
-  for (const i of itens) {
+  for (const i of itensFiltrados) {
     const e = porEmp.get(i.employeeId) ?? { nome: i.nomeColaborador, setor: i.setorTitulo, itens: [] as typeof itens };
     e.itens.push(i);
     porEmp.set(i.employeeId, e);
   }
 
-  const totalGeral = { bruto: 0, final: 0 };
   let idx = 0;
   for (const e of porEmp.values()) {
     idx++;
@@ -46,8 +57,6 @@ export async function POST(req: Request) {
       },
       { bruto: 0, final: 0 }
     );
-    totalGeral.bruto += totalEmp.bruto;
-    totalGeral.final += totalEmp.final;
 
     doc.fillColor("#0b5394").font("Helvetica-Bold").fontSize(11).text(`${idx}. ${e.nome} (${e.setor})`);
     doc.fillColor("#111").font("Helvetica").fontSize(9);
@@ -65,14 +74,14 @@ export async function POST(req: Request) {
   doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor("#bbb").stroke();
   doc.moveDown(0.4);
   doc.font("Helvetica-Bold").fontSize(11).fillColor("#111").text(
-    `Totais  •  Bruto: ${formatBRL(totalGeral.bruto)}  •  Descontos: ${formatBRL(totais.descontos)}  •  Final: ${formatBRL(totalGeral.final)}`
+    `Totais  •  Bruto: ${formatBRL(totaisFiltrados.bruto)}  •  Descontos: ${formatBRL(totaisFiltrados.descontos)}  •  Final: ${formatBRL(totaisFiltrados.final)}`
   );
 
-  if (avisos.length > 0) {
+  if (avisosExibir.length > 0) {
     doc.moveDown(0.8);
-    doc.fillColor("#b45309").fontSize(9).text(`Avisos — nomes sem correspondência no mês (${avisos.length}):`);
+    doc.fillColor("#b45309").fontSize(9).text(`Avisos — nomes sem correspondência no mês (${avisosExibir.length}):`);
     doc.fillColor("#666").font("Helvetica").fontSize(8);
-    for (const a of avisos.slice(0, 25)) {
+    for (const a of avisosExibir.slice(0, 25)) {
       doc.text(`  • ${a.nome} — ${a.qtdLinhas} linha(s) (${a.coluna === "quem_agendou" ? "quem agendou" : "quem atendeu"})`);
     }
   }
@@ -81,10 +90,12 @@ export async function POST(req: Request) {
   await done;
   const pdf = Buffer.concat(chunks);
 
+  const sufixo = nomeFiltro ? `-${normalizeNome(nomeFiltro).replace(/\s+/g, "-")}` : "";
+
   return new NextResponse(pdf, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="bonificacao-${mes}.pdf"`,
+      "Content-Disposition": `inline; filename="bonificacao-${mes}${sufixo}.pdf"`,
     },
   });
 }

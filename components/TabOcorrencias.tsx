@@ -18,6 +18,7 @@ export default function TabOcorrencias() {
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7));
+  const [filtroEmp, setFiltroEmp] = useState("");
 
   const [employeeId, setEmployeeId] = useState("");
   const [data, setData] = useState("");
@@ -83,16 +84,28 @@ export default function TabOcorrencias() {
 
   const toneGrav = (g: number) => (g === 3 ? "red" : g === 2 ? "amber" : "green") as "red" | "amber" | "green";
 
+  const empOpcoes = [...new Map(ocorrencias.map((o) => [o.employee_id, o.nome_colaborador])).entries()];
+  const visiveis = filtroEmp ? ocorrencias.filter((o) => o.employee_id === filtroEmp) : ocorrencias;
+
   if (carregando) return <div className="text-sm text-slate-400">Carregando ocorrências…</div>;
 
   return (
     <div className="space-y-6">
       {erro && <Alert>{erro}</Alert>}
 
-      <div className="flex gap-2 items-end">
+      <div className="flex gap-2 items-end flex-wrap">
         <div>
           <label className="text-xs text-slate-500">Mês</label>
           <Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-40" />
+        </div>
+        <div>
+          <label className="text-xs text-slate-500">Colaborador</label>
+          <Select value={filtroEmp} onChange={(e) => setFiltroEmp(e.target.value)} className="w-60">
+            <option value="">Todos os colaboradores</option>
+            {empOpcoes.map(([id, nome]) => (
+              <option key={id} value={id}>{nome}</option>
+            ))}
+          </Select>
         </div>
         <Button variant="ghost" onClick={() => void carregar()}>Atualizar</Button>
       </div>
@@ -149,12 +162,19 @@ export default function TabOcorrencias() {
         </Button>
       </Card>
 
-      <Card title={`Ocorrências de ${mes} (${ocorrencias.length})`} actions={<a href={`/api/pdf/occurrences?mes=${mes}`} target="_blank"><Button variant="ghost">PDF</Button></a>}>
-        {ocorrencias.length === 0 ? (
+      <Card
+        title={`Ocorrências de ${mes} (${visiveis.length})`}
+        actions={
+          <a href={`/api/pdf/occurrences?mes=${mes}${filtroEmp ? `&employee_id=${filtroEmp}` : ""}`} target="_blank">
+            <Button variant="ghost">PDF</Button>
+          </a>
+        }
+      >
+        {visiveis.length === 0 ? (
           <Empty>Nenhuma ocorrência no período.</Empty>
         ) : (
           <Tabela head={["Data", "Colaborador", "Setor", "Gravidade", "Critérios", "Obs.", ""]}>
-            {ocorrencias.map((o) => (
+            {visiveis.map((o) => (
               <tr key={o.id}>
                 <td className="px-3 py-2 whitespace-nowrap">{o.data}</td>
                 <td className="px-3 py-2 font-medium">{o.nome_colaborador}</td>

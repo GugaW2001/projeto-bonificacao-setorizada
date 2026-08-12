@@ -1,0 +1,19 @@
+# Contexto de build — manter leve e sem segredos/dados
+
+node_modules
+.next
+.git
+coverage
+
+# envs (nunca entram na imagem; definidas no EasyPanel)
+.env
+.env.*
+!.env.example
+
+# dados de pacientes — nunca entrar no contexto de build
+*.xls
+*.xlsx
+
+# misc
+*.tsbuildinfo
+npm-debug.log*

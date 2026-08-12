@@ -91,6 +91,7 @@ export const occurrencesReportSchema = z.object({
 
 export const sessionPdfSchema = z.object({
   mes: z.string().regex(/^\d{4}-\d{2}$/, "Mês de referência inválido"),
+  employeeId: uuidSchema.optional(),
   faturamentoTotal: z.coerce.number().optional(),
   arquivo: z.string().max(255).default(""),
   avisos: z
