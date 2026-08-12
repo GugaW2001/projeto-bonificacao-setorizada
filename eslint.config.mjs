@@ -13,6 +13,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // Os tabs carregam dados no monte via fetch assíncrono — padrão documentado
+  // do React para dados que dependem do servidor. A regra estática do
+  // React Compiler não distingue isso; mantém-se desligada só aqui.
+  {
+    files: ["components/**/*.tsx"],
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

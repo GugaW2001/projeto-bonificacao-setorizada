@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dados de pacientes (planilhas de produção) — nunca commitar
+*.xls
+*.xlsx
