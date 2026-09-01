@@ -5,7 +5,7 @@
  * linha 2 com "Estatísticas Agendamentos", linha 3 com os 29 cabeçalhos).
  * Portanto o cabeçalho é DETECTADO por similaridade fuzzy nas primeiras linhas.
  *
- * Apenas as colunas Q (Quem Agendou), R (Quem Atendeu) e X (Valor Faturado) são
+ * Apenas as colunas Q (Quem Agendou), R (Quem Atendeu) e W (Valor Provisionado) são
  * utilizadas como métrica; a linha original é preservada em `raw` para auditoria.
  */
 
@@ -29,7 +29,7 @@ export const COL_IDX = {
   encaminhamento: 13, local: 14, ondeConheceu: 15,
   quemAgendou: 16, quemAtendeu: 17, dataAgendou: 18, horaAgendou: 19,
   tecnicoExecutante: 20, tecnicoPreFicha: 21,
-  valorProvisionado: 22, valorFaturado: 23, valorRecebido: 24,
+  valorProvisionado: 22, valorFaturado: 22, valorRecebido: 24,
   valorFatProc: 25, valorFatMatMed: 26, valorFatPacoteProc: 27, valorFatPacoteMatMed: 28,
 } as const;
 

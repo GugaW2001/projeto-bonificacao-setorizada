@@ -6,13 +6,13 @@ import type { CriteriaConfig, DiscountRuleConfig } from "../lib/bonusCalculation
 
 const CABECALHO = [...COLUNAS_REFERENCIA];
 
-/** Linha de 29 colunas com Q(16), R(17) e X(23) preenchidos, imitando a planilha real. */
+/** Linha de 29 colunas com Q(16), R(17) e W(22) preenchidos, imitando a planilha real. */
 function linha(q: string, r: string, valor: string, data = "02/07/26"): string[] {
   const l = Array(29).fill("");
   l[1] = data;
   l[16] = q;
   l[17] = r;
-  l[23] = valor;
+  l[22] = valor;
   return l;
 }
 
